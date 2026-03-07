@@ -5,7 +5,7 @@ const http = require("http");
 
 // --- KONFIGURACJA ---
 const CHATROOM_ID = 29369738; // UPEWNIJ SIĘ, ŻE TO TWOJE ID
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 let level = 0;
 const MAX_LEVEL = 100;
 const DECAY_SPEED = 5;       // ile % ubywa co sekundę
@@ -88,4 +88,5 @@ function connectToKick() {
 connectToKick();
 server.listen(PORT, () => {
     console.log(`⭐ Serwer działa! Adres do OBS: http://localhost:${PORT}/overlay.html`);
+
 });
