@@ -2,6 +2,8 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <title>Dymometr Overlay</title>
+    <script src="https://cdn.jsdelivr.net/npm/confetti-js@0.0.18/dist/index.min.js"></script>
     <style>
         body { 
             background: transparent; 
@@ -22,150 +24,160 @@
             align-items: center;
         }
 
-        /* Kontener na fajerwerki wyrzucane w GÓRĘ */
+        /* Obszar wybuchu nad dymometrem */
         #confetti-canvas {
             position: absolute;
-            top: -150px; /* Umieszczony NAD dymometrem */
-            width: 400px;
-            height: 300px;
+            top: -200px; 
+            width: 500px;
+            height: 400px;
             z-index: 20;
             pointer-events: none;
         }
 
-        /* Szklana obudowa - modern / glassy style */
+        /* Szklana obudowa - Glassmorphism */
         .glass-tube {
-            width: 70px; 
+            width: 75px; 
             height: 550px;
-            background: rgba(255, 255, 255, 0.03); 
-            border: 2px solid rgba(255, 102, 0, 0.4); 
-            border-radius: 35px;
+            background: rgba(255, 255, 255, 0.05); 
+            border: 2px solid rgba(255, 102, 0, 0.35); 
+            border-radius: 40px;
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(8px);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), 
-                        inset 0 0 15px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
+                        inset 0 0 20px rgba(255, 255, 255, 0.05);
         }
 
-        /* Subtelny odblask na szkle */
-        .glass-tube::after {
-            content: "";
-            position: absolute; top: 0; left: 10px;
-            width: 8px; height: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 35px; filter: blur(2px);
-        }
-
-        /* Pionowy napis DYMOMETR pod wypełnieniem */
+        /* Pionowy napis DYMOMETR - teraz bardziej czytelny i "glassy" */
         .title {
             position: absolute;
-            top: 50%; left: 50%;
+            top: 50%; 
+            left: 50%;
             transform: translate(-50%, -50%) rotate(180deg);
-            color: rgba(255, 255, 255, 0.15); 
-            font-size: 26px;
-            font-weight: 800;
+            color: rgba(255, 255, 255, 0.2); 
+            font-size: 28px;
+            font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 5px;
+            letter-spacing: 6px;
             z-index: 10;
             writing-mode: vertical-rl;
-            text-shadow: 0 0 10px rgba(255, 102, 0, 0.3);
+            text-shadow: 0 0 12px rgba(255, 102, 0, 0.4);
+            pointer-events: none;
         }
 
-        /* Kolorowe wypełnienie paska - gradient */
+        /* Kolorowe wypełnienie paska */
         .fill-bar {
             position: absolute;
-            bottom: 0; left: 0;
-            width: 100%; height: 0%;
+            bottom: 0; 
+            left: 0;
+            width: 100%; 
+            height: 0%;
             background: linear-gradient(to top, #ff0000 0%, #ff8800 50%, #ffff00 100%);
-            transition: height 0.3s ease-out;
-            border-radius: 0 0 33px 33px;
-            box-shadow: 0 0 25px rgba(255, 68, 0, 0.8);
+            transition: height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border-radius: 0 0 38px 38px;
+            box-shadow: 0 0 25px rgba(255, 68, 0, 0.7);
             z-index: 5;
         }
 
-        /* --- ANIMACJE EFEKTU --- */
+        /* Odblask na szkle (efekt 3D) */
+        .glass-tube::after {
+            content: "";
+            position: absolute; 
+            top: 0; 
+            left: 12px;
+            width: 10px; 
+            height: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 40px; 
+            filter: blur(3px);
+            z-index: 15;
+        }
+
+        /* Animacje wybuchu */
         .shake-it { animation: intense-shake 0.6s ease-in-out forwards; }
         .flash-it { animation: intense-flash 0.8s ease-out forwards; }
 
         @keyframes intense-shake {
-            0% { transform: translate(0,0); }
-            15% { transform: translate(-10px, 6px) rotate(-3deg); }
-            30% { transform: translate(10px, -6px) rotate(3deg); }
-            100% { transform: translate(0,0); }
+            0%, 100% { transform: translate(0,0); }
+            15% { transform: translate(-10px, 5px) rotate(-2deg); }
+            30% { transform: translate(10px, -5px) rotate(2deg); }
+            50% { transform: translate(-5px, -5px) rotate(-1deg); }
         }
 
         @keyframes intense-flash {
             0% { filter: brightness(1); }
-            20% { filter: brightness(5) drop-shadow(0 0 40px gold); }
+            20% { filter: brightness(4) drop-shadow(0 0 50px gold); }
             100% { filter: brightness(1); }
         }
     </style>
 </head>
 <body>
 
-    <script src="https://cdn.jsdelivr.net/npm/confetti-js@0.0.18/dist/index.min.js"></script>
-
     <div class="main-wrapper" id="flash-zone">
-        
         <canvas id="confetti-canvas"></canvas>
 
         <div class="glass-tube" id="widget-box">
             <div class="title">DYMOMETR</div>
             <div id="fill" class="fill-bar"></div>
         </div>
-
     </div>
 
     <script>
-        // Konfiguracja efektu wybuchu
-        let confettiSettings = {
+        // 1. Konfiguracja fajerwerków
+        const confettiSettings = {
             target: 'confetti-canvas',
-            respawn: false, // Fajerwerki nie pojawiają się same z siebie
-            size: 2, // Rozmiar cząsteczek
-            colors: [
-                [255, 102, 0], // Pomarańczowy
-                [255, 204, 0], // Złoty/Żółty
-                [255, 68, 0]   // Czerwony
-            ],
-            // Wystrzeliwujemy cząsteczki W GÓRĘ
-            props: ['circle', 'square', 'line'],
-            clock: 40,
-            angle: 90, // Kąt 90 = prosto w górę
-            spread: 50, // Rozrzut na boki
-            start_from_edge: true,
-            rotate: true
+            respawn: false,
+            size: 2,
+            colors: [[255,102,0], [255,204,0], [255,68,0]],
+            clock: 45,
+            angle: 90,
+            spread: 60,
+            start_from_edge: true
         };
         let confetti = new ConfettiGenerator(confettiSettings);
 
+        // 2. Automatyczne wykrywanie adresu serwera (Localhost vs Render.com)
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socketUrl = `${protocol}//${window.location.host}`;
+
         const connect = () => {
-            const socket = new WebSocket("ws://localhost:3000");
+            const socket = new WebSocket(socketUrl);
             const fill = document.getElementById("fill");
             const widget = document.getElementById("widget-box");
             const zone = document.getElementById("flash-zone");
             
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
+                
+                // Aktualizacja wysokości paska
                 fill.style.height = data.level + "%";
 
+                // Wyzwalanie efektu 100%
                 if (data.triggerEffect === true) {
-                    // Odpalamy wstrząs i błysk
+                    // Animacje CSS
                     widget.classList.remove("shake-it");
                     zone.classList.remove("flash-it");
                     void widget.offsetWidth; 
                     widget.classList.add("shake-it");
                     zone.classList.add("flash-it");
 
-                    // ODPALAMY WYBUCH FAJERWERKÓW (confetti)
-                    // Resetujemy generator, żeby wyrzucił nową partię
+                    // Wybuch fajerwerków
                     confetti.clear();
                     confetti = new ConfettiGenerator(confettiSettings);
                     confetti.render();
-
-                    // Zatrzymujemy generator po 2 sekundach, żeby nie obciążał OBS
-                    setTimeout(() => confetti.clear(), 2000);
+                    setTimeout(() => confetti.clear(), 3000);
                 }
             };
-            socket.onclose = () => setTimeout(connect, 2000);
+
+            socket.onclose = () => {
+                console.log("Połączenie przerwane. Reconnect za 2s...");
+                setTimeout(connect, 2000);
+            };
+
+            socket.onerror = (err) => console.error("Błąd WebSocket:", err);
         };
+
         connect();
     </script>
 </body>
