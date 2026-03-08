@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html>
 <head>
     <meta charset="UTF-8">
+    <title>Dymometr Overlay</title>
     <style>
         body { background: transparent; margin: 0; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
         .main-container { position: relative; width: 215px; height: 600px; }
@@ -13,37 +14,43 @@
         .active-layer { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; 
             background: url('tlo.png') no-repeat bottom; background-size: 215px 600px; 
-            filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 15px orange); 
-            transition: height 0.1s linear; z-index: 2; 
+            filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange); 
+            transition: height 0.5s cubic-bezier(0.1, 0.7, 1.0, 0.1); z-index: 2; 
         }
         .glow-line { 
             position: absolute; top: -15px; left: 0; width: 100%; height: 30px; 
-            background: url('kreska.png') no-repeat center; background-size: contain; z-index: 3; 
+            background: url('kreska.png') no-repeat center; background-size: contain; 
+            z-index: 3; filter: drop-shadow(0 0 10px gold); 
         }
+        .flash { animation: flash-anim 0.2s ease-in-out 3; }
+        @keyframes flash-anim { 0% { filter: brightness(1); } 50% { filter: brightness(3); } 100% { filter: brightness(1); } }
     </style>
 </head>
 <body>
-    <div class="main-container">
+    <div class="main-container" id="widget">
         <div class="background-dim"></div>
         <div id="fill" class="active-layer"><div class="glow-line"></div></div>
     </div>
     <script>
-        let ws;
-        function connect() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}`);
-            
-            ws.onmessage = (e) => {
-                const data = JSON.parse(e.data);
-                if (data.level !== undefined) {
-                    document.getElementById('fill').style.height = data.level + '%';
-                }
-            };
+        // Ta linijka naprawia problem z adresem na Renderze:
+        const socket = new WebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host);
+        
+        const fill = document.getElementById("fill");
+        const widget = document.getElementById("widget");
 
-            ws.onopen = () => console.log("CONNECTED TO SERVER");
-            ws.onclose = () => setTimeout(connect, 2000);
-        }
-        connect();
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.level !== undefined) {
+                fill.style.height = data.level + "%";
+            }
+            if (data.triggerEffect) {
+                widget.classList.add("flash");
+                setTimeout(() => widget.classList.remove("flash"), 1000);
+            }
+        };
+
+        socket.onopen = () => console.log("✅ Połączono z serwerem");
+        socket.onclose = () => setTimeout(() => location.reload(), 3000);
     </script>
 </body>
 </html>
