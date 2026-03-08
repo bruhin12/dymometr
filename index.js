@@ -1,92 +1,65 @@
-const WebSocket = require("ws");
-const express = require("express");
-const path = require("path");
-const http = require("http");
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
 
-// --- KONFIGURACJA ---
-const CHATROOM_ID = 29369738; // UPEWNIJ SIĘ, ŻE TO TWOJE ID
-const PORT = process.env.PORT || 3000;
-let level = 0;
-const MAX_LEVEL = 100;
-const DECAY_SPEED = 5;       // ile % ubywa co sekundę
-const KEKW_BOOST = 10;       // ile % dodaje jedno KEKW
-const EFFECT_COOLDOWN = 15000; // 15 sekund przerwy między efektami
-
-let lastEffectTime = 0;
-
-// --- SERWER DLA OBS ---
 const app = express();
-app.use(express.static(__dirname));
-
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-function broadcastLevel(triggerEffect = false) {
+// Serwowanie plików statycznych z głównego folderu
+app.use(express.static(__dirname));
+
+let currentLevel = 0; 
+const MAX_LEVEL = 100;
+const KEKW_VALUE = 100 / 67; // 67 KEKW do pełna
+const DROP_SPEED = 5 / 60;   // Spadek 5% na sekundę
+
+// Pętla płynności (60 FPS)
+setInterval(() => {
+    if (currentLevel > 0) {
+        currentLevel -= DROP_SPEED;
+        if (currentLevel < 0) currentLevel = 0;
+        broadcast({ level: currentLevel });
+    }
+}, 1000 / 60);
+
+function broadcast(data) {
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ level, triggerEffect }));
+            client.send(JSON.stringify(data));
         }
     });
 }
 
-// Opadanie co sekundę
-setInterval(() => {
-    if (level > 0) {
-        level -= DECAY_SPEED;
-        if (level < 0) level = 0;
-        broadcastLevel(false);
+// GŁÓWNA LOGIKA WYKRYWANIA EMOTKI
+function handleChatMessage(content) {
+    // Szukamy Twojej konkretnej emotki
+    if (content.includes('377226:KEKW')) {
+        currentLevel += KEKW_VALUE;
+        
+        let effect = false;
+        if (currentLevel >= MAX_LEVEL) {
+            currentLevel = MAX_LEVEL;
+            effect = true;
+            console.log("💥 POZIOM MAX!");
+        }
+
+        console.log(`🔥 KEKW złapane! Poziom: ${currentLevel.toFixed(1)}%`);
+        broadcast({ level: currentLevel, triggerEffect: effect });
     }
-}, 1000);
-
-// --- POŁĄCZENIE Z KICK ---
-function connectToKick() {
-    const kickWs = new WebSocket("wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7");
-
-    kickWs.on("open", () => {
-        console.log("✅ Połączono z Kick! Czekam na KEKW...");
-    });
-
-    kickWs.on("message", (data) => {
-        const message = JSON.parse(data.toString());
-
-        if (message.event === "pusher:connection_established") {
-            kickWs.send(JSON.stringify({
-                event: "pusher:subscribe",
-                data: { channel: `chatrooms.${CHATROOM_ID}.v2` }
-            }));
-        }
-
-        if (message.event === "App\\Events\\ChatMessageEvent") {
-            const chatData = JSON.parse(message.data);
-            const text = chatData.content;
-
-            const matches = text.match(/kekw/gi);
-            if (matches) {
-                level += (matches.length * KEKW_BOOST);
-                
-                let triggerEffect = false;
-                if (level >= MAX_LEVEL) {
-                    level = MAX_LEVEL;
-                    const currentTime = Date.now();
-                    
-                    if (currentTime - lastEffectTime > EFFECT_COOLDOWN) {
-                        triggerEffect = true;
-                        lastEffectTime = currentTime;
-                        console.log("💥 WYBUCH SPECJALNY!");
-                    }
-                }
-
-                console.log(`🔥 Poziom: ${level}%`);
-                broadcastLevel(triggerEffect);
-            }
-        }
-    });
-
-    kickWs.on("close", () => setTimeout(connectToKick, 5000));
 }
 
-connectToKick();
-server.listen(PORT, () => {
-    console.log(`⭐ Serwer działa! Adres do OBS: http://localhost:${PORT}/overlay.html`);
+// --- TUTAJ WSTAW SWOJE POŁĄCZENIE Z KICKIEM ---
+// Upewnij się, że Twój bot przesyła treść wiadomości do handleChatMessage(wiadomosc);
+// ----------------------------------------------
 
+wss.on('connection', (ws) => {
+    ws.send(JSON.stringify({ level: currentLevel }));
+});
+
+// KLUCZOWE DLA RENDERA: dynamiczny port
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 Serwer dymometru działa na porcie ${PORT}`);
 });
