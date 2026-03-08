@@ -6,9 +6,9 @@ const http = require("http");
 const CHATROOM_ID = 31815171; // TWÓJ NOWY CHATROOM
 const PORT = process.env.PORT || 10000;
 let level = 0;
-const MAX_LEVEL = 400;
+const MAX_LEVEL = 100;
 const DECAY_SPEED = 2;       // ile % ubywa co sekundę (wolniej, żeby dym trzymał)
-const KEKW_BOOST = 2;        // ile % dodaje jedno KEKW
+const KEKW_BOOST = 0.3;        // ile % dodaje jedno KEKW
 const EFFECT_COOLDOWN = 300000; // 5 sekund przerwy między błyskami
 
 let lastEffectTime = 0;
