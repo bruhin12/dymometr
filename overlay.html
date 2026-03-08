@@ -1,123 +1,36 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Dymometr Overlay</title>
     <style>
-        body { 
-            background: transparent; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-        }
-
-        .main-container { 
-            position: relative; 
-            width: 215px; 
-            height: 600px; 
-        }
-
-        /* Tło - czarno-białe, przyciemnione */
-        .background-dim { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: url('tlo.png') no-repeat center; 
-            background-size: 100% 100%; 
-            filter: grayscale(100%) brightness(0.2); 
-            z-index: 1; 
-        }
-
-        /* Warstwa aktywna - kolorowa, podnosząca się */
-        .active-layer { 
-            position: absolute; 
-            bottom: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 0%; 
-            background: url('tlo.png') no-repeat bottom; 
-            background-size: 215px 600px; 
-            filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange); 
-            transition: height 0.1s linear; 
-            z-index: 2; 
-        }
-
-        /* Linia blasku (kreska.png) na szczycie paska */
-        .glow-line { 
-            position: absolute; 
-            top: -15px; 
-            left: 0; 
-            width: 100%; 
-            height: 30px; 
-            background: url('kreska.png') no-repeat center; 
-            background-size: contain; 
-            z-index: 3; 
-        }
-
-        /* Efekt błysku przy 100% */
-        .flash { 
-            animation: flash-anim 0.2s ease-in-out 3; 
-        }
-
-        @keyframes flash-anim { 
-            0%, 100% { filter: brightness(1); } 
-            50% { filter: brightness(3.5); } 
-        }
+        body { background: transparent; margin: 0; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .main-container { position: relative; width: 215px; height: 600px; }
+        /* Upewnij się, że nazwy plików tlo.png i kreska.png są identyczne na GitHubie! */
+        .background-dim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('tlo.png') no-repeat center; background-size: 100% 100%; filter: grayscale(100%) brightness(0.2); z-index: 1; }
+        .active-layer { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: url('tlo.png') no-repeat bottom; background-size: 215px 600px; filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange); transition: height 0.1s linear; z-index: 2; }
+        .glow-line { position: absolute; top: -15px; left: 0; width: 100%; height: 30px; background: url('kreska.png') no-repeat center; background-size: contain; z-index: 3; }
     </style>
 </head>
 <body>
-
-    <div class="main-container" id="widget">
+    <div class="main-container">
         <div class="background-dim"></div>
         <div id="fill" class="active-layer">
             <div class="glow-line"></div>
         </div>
     </div>
-
     <script>
-        // Automatyczne dopasowanie protokołu (ws dla localhost, wss dla Render)
+        // Kluczowa poprawka: połączenie z adresem na którym faktycznie stoi strona
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${protocol}//${window.location.host}`);
 
-        const fill = document.getElementById("fill");
-        const widget = document.getElementById("widget");
-
-        socket.onopen = () => {
-            console.log("✅ Połączono z dymometrem!");
-        };
-
-        socket.onclose = () => {
-            console.log("❌ Połączenie z serwerem przerwane!");
-        };
-
+        socket.onopen = () => console.log("✅ Połączono z serwerem dymometru");
         socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                // Aktualizacja wysokości paska (0-100%)
-                if (data.level !== undefined) {
-                    fill.style.height = data.level + "%";
-                }
-
-                // Wyzwolenie efektu flash przy pełnym pasku
-                if (data.triggerEffect) {
-                    widget.classList.add("flash");
-                    setTimeout(() => widget.classList.remove("flash"), 1000);
-                }
-            } catch (e) {
-                console.error("Błąd odbierania danych:", e);
+            const data = JSON.parse(event.data);
+            if (data.level !== undefined) {
+                document.getElementById("fill").style.height = data.level + "%";
             }
         };
-
-        socket.onerror = (err) => {
-            console.error("❌ Błąd WebSocket:", err);
-        };
+        socket.onerror = (e) => console.log("❌ Błąd połączenia:", e);
     </script>
 </body>
 </html>
