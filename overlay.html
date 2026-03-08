@@ -4,54 +4,13 @@
     <meta charset="UTF-8">
     <title>Dymometr Overlay</title>
     <style>
-        body { 
-            background: transparent; 
-            margin: 0; padding: 0; 
-            overflow: hidden;
-            display: flex; align-items: center; justify-content: center; 
-            height: 100vh;
-        }
-
-        .main-container {
-            position: relative;
-            width: 215px; 
-            height: 600px; 
-        }
-
-        .background-dim {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: url('tlo.png') no-repeat center;
-            background-size: 100% 100%;
-            filter: grayscale(100%) brightness(0.2);
-            z-index: 1;
-        }
-
-        .active-layer {
-            position: absolute;
-            bottom: 0; left: 0; width: 100%; 
-            height: 0%; 
-            background: url('tlo.png') no-repeat bottom;
-            background-size: 215px 600px;
-            filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange);
-            transition: height 0.1s linear; 
-            z-index: 2;
-        }
-
-        .glow-line {
-            position: absolute;
-            top: -15px; 
-            left: 0; width: 100%; height: 30px;
-            background: url('kreska.png') no-repeat center;
-            background-size: contain;
-            z-index: 3;
-        }
-
+        body { background: transparent; margin: 0; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .main-container { position: relative; width: 215px; height: 600px; }
+        .background-dim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('tlo.png') no-repeat center; background-size: 100% 100%; filter: grayscale(100%) brightness(0.2); z-index: 1; }
+        .active-layer { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: url('tlo.png') no-repeat bottom; background-size: 215px 600px; filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange); transition: height 0.1s linear; z-index: 2; }
+        .glow-line { position: absolute; top: -15px; left: 0; width: 100%; height: 30px; background: url('kreska.png') no-repeat center; background-size: contain; z-index: 3; }
         .flash { animation: flash-anim 0.2s ease-in-out 3; }
-        @keyframes flash-anim {
-            0%, 100% { filter: brightness(1); }
-            50% { filter: brightness(3.5); }
-        }
+        @keyframes flash-anim { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(3.5); } }
     </style>
 </head>
 <body>
@@ -61,28 +20,19 @@
             <div class="glow-line"></div>
         </div>
     </div>
-
     <script>
-        // DYNAMICZNY ADRES WEBSOCKET (Działa na localhost i Renderze)
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const socket = new WebSocket(`${protocol}//${window.location.host}`);
-        
         const fill = document.getElementById("fill");
         const widget = document.getElementById("widget");
-
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.level !== undefined) {
-                fill.style.height = data.level + "%";
-            }
+            if (data.level !== undefined) fill.style.height = data.level + "%";
             if (data.triggerEffect) {
                 widget.classList.add("flash");
                 setTimeout(() => widget.classList.remove("flash"), 1000);
             }
         };
-
-        socket.onopen = () => console.log("✅ Połączono z dymometrem");
-        socket.onclose = () => console.log("❌ Połączenie utracone");
     </script>
 </body>
 </html>
