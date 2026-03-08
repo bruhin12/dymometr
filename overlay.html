@@ -3,182 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <title>Dymometr Overlay</title>
-    <script src="https://cdn.jsdelivr.net/npm/confetti-js@0.0.18/dist/index.min.js"></script>
     <style>
         body { 
             background: transparent; 
-            margin: 0; 
-            padding: 0;
-            overflow: hidden; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            font-family: 'Montserrat', sans-serif;
-        }
-
-        .main-wrapper {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* Obszar wybuchu nad dymometrem */
-        #confetti-canvas {
-            position: absolute;
-            top: -200px; 
-            width: 500px;
-            height: 400px;
-            z-index: 20;
-            pointer-events: none;
-        }
-
-        /* Szklana obudowa - Glassmorphism */
-        .glass-tube {
-            width: 75px; 
-            height: 550px;
-            background: rgba(255, 255, 255, 0.05); 
-            border: 2px solid rgba(255, 102, 0, 0.35); 
-            border-radius: 40px;
-            position: relative;
+            margin: 0; padding: 0; 
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
-                        inset 0 0 20px rgba(255, 255, 255, 0.05);
+            display: flex; align-items: center; justify-content: center; 
+            height: 100vh;
         }
 
-        /* Pionowy napis DYMOMETR - teraz bardziej czytelny i "glassy" */
-        .title {
+        .main-container {
+            position: relative;
+            width: 215px; 
+            height: 600px; 
+        }
+
+        .background-dim {
             position: absolute;
-            top: 50%; 
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(180deg);
-            color: rgba(255, 255, 255, 0.2); 
-            font-size: 28px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            z-index: 10;
-            writing-mode: vertical-rl;
-            text-shadow: 0 0 12px rgba(255, 102, 0, 0.4);
-            pointer-events: none;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('tlo.png') no-repeat center;
+            background-size: 100% 100%;
+            filter: grayscale(100%) brightness(0.2);
+            z-index: 1;
         }
 
-        /* Kolorowe wypełnienie paska */
-        .fill-bar {
+        .active-layer {
             position: absolute;
-            bottom: 0; 
-            left: 0;
-            width: 100%; 
-            height: 0%;
-            background: linear-gradient(to top, #ff0000 0%, #ff8800 50%, #ffff00 100%);
-            transition: height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            border-radius: 0 0 38px 38px;
-            box-shadow: 0 0 25px rgba(255, 68, 0, 0.7);
-            z-index: 5;
+            bottom: 0; left: 0; width: 100%; 
+            height: 0%; 
+            background: url('tlo.png') no-repeat bottom;
+            background-size: 215px 600px;
+            filter: grayscale(0%) brightness(1.2) drop-shadow(0 0 20px orange);
+            transition: height 0.1s linear; 
+            z-index: 2;
         }
 
-        /* Odblask na szkle (efekt 3D) */
-        .glass-tube::after {
-            content: "";
-            position: absolute; 
-            top: 0; 
-            left: 12px;
-            width: 10px; 
-            height: 100%;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 40px; 
-            filter: blur(3px);
-            z-index: 15;
+        .glow-line {
+            position: absolute;
+            top: -15px; 
+            left: 0; width: 100%; height: 30px;
+            background: url('kreska.png') no-repeat center;
+            background-size: contain;
+            z-index: 3;
         }
 
-        /* Animacje wybuchu */
-        .shake-it { animation: intense-shake 0.6s ease-in-out forwards; }
-        .flash-it { animation: intense-flash 0.8s ease-out forwards; }
-
-        @keyframes intense-shake {
-            0%, 100% { transform: translate(0,0); }
-            15% { transform: translate(-10px, 5px) rotate(-2deg); }
-            30% { transform: translate(10px, -5px) rotate(2deg); }
-            50% { transform: translate(-5px, -5px) rotate(-1deg); }
-        }
-
-        @keyframes intense-flash {
-            0% { filter: brightness(1); }
-            20% { filter: brightness(4) drop-shadow(0 0 50px gold); }
-            100% { filter: brightness(1); }
+        .flash { animation: flash-anim 0.2s ease-in-out 3; }
+        @keyframes flash-anim {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(3.5); }
         }
     </style>
 </head>
 <body>
-
-    <div class="main-wrapper" id="flash-zone">
-        <canvas id="confetti-canvas"></canvas>
-
-        <div class="glass-tube" id="widget-box">
-            <div class="title">DYMOMETR</div>
-            <div id="fill" class="fill-bar"></div>
+    <div class="main-container" id="widget">
+        <div class="background-dim"></div>
+        <div id="fill" class="active-layer">
+            <div class="glow-line"></div>
         </div>
     </div>
 
     <script>
-        // 1. Konfiguracja fajerwerków
-        const confettiSettings = {
-            target: 'confetti-canvas',
-            respawn: false,
-            size: 2,
-            colors: [[255,102,0], [255,204,0], [255,68,0]],
-            clock: 45,
-            angle: 90,
-            spread: 60,
-            start_from_edge: true
-        };
-        let confetti = new ConfettiGenerator(confettiSettings);
-
-        // 2. Automatyczne wykrywanie adresu serwera (Localhost vs Render.com)
+        // DYNAMICZNY ADRES WEBSOCKET (Działa na localhost i Renderze)
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socketUrl = `${protocol}//${window.location.host}`;
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+        
+        const fill = document.getElementById("fill");
+        const widget = document.getElementById("widget");
 
-        const connect = () => {
-            const socket = new WebSocket(socketUrl);
-            const fill = document.getElementById("fill");
-            const widget = document.getElementById("widget-box");
-            const zone = document.getElementById("flash-zone");
-            
-            socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                
-                // Aktualizacja wysokości paska
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.level !== undefined) {
                 fill.style.height = data.level + "%";
-
-                // Wyzwalanie efektu 100%
-                if (data.triggerEffect === true) {
-                    // Animacje CSS
-                    widget.classList.remove("shake-it");
-                    zone.classList.remove("flash-it");
-                    void widget.offsetWidth; 
-                    widget.classList.add("shake-it");
-                    zone.classList.add("flash-it");
-
-                    // Wybuch fajerwerków
-                    confetti.clear();
-                    confetti = new ConfettiGenerator(confettiSettings);
-                    confetti.render();
-                    setTimeout(() => confetti.clear(), 3000);
-                }
-            };
-
-            socket.onclose = () => {
-                console.log("Połączenie przerwane. Reconnect za 2s...");
-                setTimeout(connect, 2000);
-            };
-
-            socket.onerror = (err) => console.error("Błąd WebSocket:", err);
+            }
+            if (data.triggerEffect) {
+                widget.classList.add("flash");
+                setTimeout(() => widget.classList.remove("flash"), 1000);
+            }
         };
 
-        connect();
+        socket.onopen = () => console.log("✅ Połączono z dymometrem");
+        socket.onclose = () => console.log("❌ Połączenie utracone");
     </script>
 </body>
 </html>
