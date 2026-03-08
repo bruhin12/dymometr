@@ -1,100 +1,97 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
+const WebSocket = require("ws");
+const express = require("express");
+const http = require("http");
+
+// --- KONFIGURACJA ---
+const CHATROOM_ID = 31815171; // TWÓJ NOWY CHATROOM
+const PORT = process.env.PORT || 10000;
+let level = 0;
+const MAX_LEVEL = 100;
+const DECAY_SPEED = 1;       // ile % ubywa co sekundę (wolniej, żeby dym trzymał)
+const KEKW_BOOST = 5;        // ile % dodaje jedno KEKW
+const EFFECT_COOLDOWN = 5000; // 5 sekund przerwy między błyskami
+
+let lastEffectTime = 0;
 
 const app = express();
+app.use(express.static(__dirname));
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(express.static(__dirname));
-
-let currentLevel = 0;
-const MAX_LEVEL = 100;
-const KEKW_POINTS = 3.0; // Ile % za jedno KEKW
-const DROP_SPEED = 0.05; // Jak szybko spada dymometr
-
-const CHATROOM_ID = 31815171; 
-let kickSocket;
-
-// Funkcja wysyłająca dane do OBS
-function broadcast(data) {
+function broadcastLevel(triggerEffect = false) {
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
+            client.send(JSON.stringify({ level, triggerEffect }));
         }
     });
 }
 
-// LOGIKA DODAWANIA PUNKTÓW (z Twojego starego kodu)
-function addPoints(points) {
-    currentLevel += points;
-    if (currentLevel > MAX_LEVEL) currentLevel = MAX_LEVEL;
-    
-    console.log(`🔥 Poziom wzrósł do: ${currentLevel.toFixed(1)}%`);
-    broadcast({ level: currentLevel });
-
-    if (currentLevel === MAX_LEVEL) {
-        broadcast({ triggerEffect: true });
+// Opadanie poziomu
+setInterval(() => {
+    if (level > 0) {
+        level -= DECAY_SPEED;
+        if (level < 0) level = 0;
+        broadcastLevel(false);
     }
-}
+}, 1000);
 
-// POŁĄCZENIE Z CZATEM KICKA
+// --- POŁĄCZENIE Z KICK (STARY SPRAWDZONY SILNIK) ---
 function connectToKick() {
-    // Łączymy się z klastrem us2 (poprawny dla Kicka)
-    kickSocket = new WebSocket('wss://ws-us2.pusher.com/app/eb1d5f2830c9ce35672d?protocol=7&client=js&version=8.3.0');
+    // Używamy klucza ze starego działającego kodu
+    const kickWs = new WebSocket("wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7");
 
-    kickSocket.onopen = () => {
-        console.log('✅ Połączono z serwerem Kick!');
-        kickSocket.send(JSON.stringify({
-            event: 'pusher:subscribe',
+    kickWs.on("open", () => {
+        console.log("✅ Połączono z Kick! Czekam na KEKW...");
+        kickWs.send(JSON.stringify({
+            event: "pusher:subscribe",
             data: { channel: `chatrooms.${CHATROOM_ID}.v2` }
         }));
-    };
+    });
 
-    kickSocket.onmessage = (event) => {
-        const raw = JSON.parse(event.data);
-        
-        // Jeśli to wiadomość z czatu
-        if (raw.event === 'App\\Events\\ChatMessageEvent') {
-            const chat = JSON.parse(raw.data);
-            const msg = chat.content || "";
-            
-            if (msg.toUpperCase().includes('KEKW')) {
-                addPoints(KEKW_POINTS);
+    kickWs.on("message", (data) => {
+        const message = JSON.parse(data.toString());
+
+        if (message.event === "App\\Events\\ChatMessageEvent") {
+            const chatData = JSON.parse(message.data);
+            const text = chatData.content || "";
+
+            const matches = text.match(/kekw/gi);
+            if (matches) {
+                level += (matches.length * KEKW_BOOST);
+                let triggerEffect = false;
+
+                if (level >= MAX_LEVEL) {
+                    level = MAX_LEVEL;
+                    const currentTime = Date.now();
+                    if (currentTime - lastEffectTime > EFFECT_COOLDOWN) {
+                        triggerEffect = true;
+                        lastEffectTime = currentTime;
+                        console.log("💥 WYBUCH DYMU!");
+                    }
+                }
+
+                console.log(`🔥 Poziom: ${level.toFixed(1)}% | Wiadomość: ${text}`);
+                broadcastLevel(triggerEffect);
             }
         }
-    };
-
-    kickSocket.onclose = () => {
-        console.log('⚠️ Rozłączono z Kick. Reconnect...');
-        setTimeout(connectToKick, 3000);
-    };
-
-    // PING co 20 sekund, żeby nas nie wyrzucało (naprawia Twój błąd z logów)
-    setInterval(() => {
-        if (kickSocket.readyState === WebSocket.OPEN) {
-            kickSocket.send(JSON.stringify({ event: 'pusher:ping', data: {} }));
+        
+        // Obsługa ping-pong dla stabilności
+        if (message.event === "pusher:ping") {
+            kickWs.send(JSON.stringify({ event: "pusher:pong" }));
         }
-    }, 20000);
+    });
+
+    kickWs.on("close", () => {
+        console.log("⚠️ Rozłączono z Kick. Reconnect za 5s...");
+        setTimeout(connectToKick, 5000);
+    });
+
+    kickWs.on("error", (err) => console.error("❌ Błąd Kick WS:", err.message));
 }
 
 connectToKick();
 
-// Pętla spadku (żeby dymometr powoli opadał)
-setInterval(() => {
-    if (currentLevel > 0) {
-        currentLevel -= DROP_SPEED;
-        broadcast({ level: currentLevel });
-    }
-}, 100);
-
-wss.on('connection', (ws) => {
-    console.log("✅ OBS połączony");
-    ws.send(JSON.stringify({ level: currentLevel }));
-});
-
-const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`🚀 SERWER DZIAŁA NA PORCIE ${PORT}`);
 });
