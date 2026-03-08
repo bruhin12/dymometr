@@ -9,65 +9,71 @@ const wss = new WebSocket.Server({ server });
 app.use(express.static(__dirname));
 
 let currentLevel = 0; 
-const KEKW_VALUE = 2.5; 
+const KEKW_VALUE = 3.5; 
 const DROP_SPEED = 0.05; 
 
-// ID z Twojego screena: 31815171
+// ID z Twojego API: 31815171
 const CHATROOM_ID = 31815171; 
 let kickSocket;
 
 function connectToKick() {
-    // Łączymy się bezpośrednio z klastrem us2, którego używa Kick
+    console.log('📡 [SYSTEM] Próba połączenia z klastrem Kick us2...');
     kickSocket = new WebSocket('wss://ws-us2.pusher.com/app/eb1d5f2830c9ce35672d?protocol=7&client=js&version=8.3.0');
 
     kickSocket.onopen = () => {
-        console.log('🔌 Połączono z Kick!');
-        // Subskrypcja czatu
+        console.log('✅ [SYSTEM] Połączono z serwerem Pusher!');
         kickSocket.send(JSON.stringify({
             event: 'pusher:subscribe',
             data: { channel: `chatrooms.${CHATROOM_ID}.v2` }
         }));
-        
-        // Heartbeat (Ping), żeby Render nas nie rozłączył
-        setInterval(() => {
-            if (kickSocket.readyState === WebSocket.OPEN) {
-                kickSocket.send(JSON.stringify({ event: 'pusher:ping', data: {} }));
-            }
-        }, 20000);
     };
 
     kickSocket.onmessage = (event) => {
         const raw = JSON.parse(event.data);
+        
+        // Logujemy każde zdarzenie, żeby wiedzieć, że połączenie żyje
         if (raw.event === 'App\\Events\\ChatMessageEvent') {
             const chat = JSON.parse(raw.data);
             const msg = chat.content || "";
-            
-            console.log(`💬 [CZAT]: ${msg}`);
+            console.log(`💬 [LOG CZATU]: ${chat.sender.username}: ${msg}`);
 
-            // Sprawdzamy czy w wiadomości jest KEKW (tekst lub emotka)
             if (msg.toUpperCase().includes('KEKW')) {
                 currentLevel = Math.min(100, currentLevel + KEKW_VALUE);
-                broadcast({ level: currentLevel });
+                console.log(`🔥 [HIT] KEKW wykryte! Nowy poziom: ${currentLevel}%`);
             }
+        } else if (raw.event === 'pusher:pong') {
+            // Cichy pong
         }
     };
 
-    kickSocket.onclose = () => setTimeout(connectToKick, 5000);
+    kickSocket.onclose = () => {
+        console.log('⚠️ [SYSTEM] Kick rozłączył. Reconnect za 3s...');
+        setTimeout(connectToKick, 3000);
+    };
 }
+
+// Heartbeat co 20 sekund
+setInterval(() => {
+    if (kickSocket && kickSocket.readyState === WebSocket.OPEN) {
+        kickSocket.send(JSON.stringify({ event: 'pusher:ping', data: {} }));
+    }
+}, 20000);
 
 connectToKick();
 
-// Pętla spadku dymu
+// Wysyłanie danych do przeglądarki (OBS)
 setInterval(() => {
-    if (currentLevel > 0) currentLevel -= DROP_SPEED;
-    broadcast({ level: currentLevel });
+    if (currentLevel > 0) currentLevel = Math.max(0, currentLevel - DROP_SPEED);
+    
+    const data = JSON.stringify({ level: currentLevel });
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+        }
+    });
 }, 100);
 
-function broadcast(data) {
-    wss.clients.forEach(c => {
-        if (c.readyState === WebSocket.OPEN) c.send(JSON.stringify(data));
-    });
-}
-
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`🚀 Serwer ruszył na porcie ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`🚀 [START] Serwer dymometru na porcie ${PORT}`);
+});
