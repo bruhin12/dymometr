@@ -10,11 +10,11 @@ const wss = new WebSocket.Server({ server });
 app.use(express.static(__dirname));
 
 let currentLevel = 0; 
-const KEKW_VALUE = 100 / 67; // 67 KEKW do pełna
-const DROP_SPEED = 5 / 60;   // Spadek 5% na sekundę
+const KEKW_VALUE = 100 / 67; 
+const DROP_SPEED = 5 / 60;   
 
 // --- KONFIGURACJA KICKA ---
-const CHATROOM_ID = 31815171; // Twój ID
+const CHATROOM_ID = 31815171; 
 const pusher = new Pusher('eb1d5f2830c9ce35672d', {
     cluster: 'mt1',
     forceTLS: true
@@ -24,22 +24,22 @@ const channel = pusher.subscribe(`chatrooms.${CHATROOM_ID}.v2`);
 
 channel.bind('App\\Events\\ChatMessageEvent', (data) => {
     try {
-        // Kick wysyła dane jako string JSON wewnątrz obiektu
         const chatData = JSON.parse(data.message);
         const content = chatData.content;
         
-        console.log(`[CZAT] ${chatData.sender.username}: ${content}`);
+        // LOGOWANIE KAŻDEJ WIADOMOŚCI - Sprawdź to w konsoli Rendera!
+        console.log(`💬 Odebrano: "${content}" od ${chatData.sender.username}`);
 
-        // Szukamy Twojej konkretnej emotki KEKW
-        if (content.includes('377226:KEKW')) {
+        // SPRAWDZANIE: Szukamy "KEKW" w dowolnej formie (tekst lub kod emotki)
+        if (content.toUpperCase().includes('KEKW')) {
             currentLevel += KEKW_VALUE;
             if (currentLevel > 100) currentLevel = 100;
             
-            console.log(`🔥 WYKRYTO KEKW! Nowy poziom: ${currentLevel.toFixed(1)}%`);
+            console.log(`🔥 PUNKT! Aktualny poziom: ${currentLevel.toFixed(1)}%`);
             broadcast({ level: currentLevel, triggerEffect: currentLevel >= 100 });
         }
     } catch (err) {
-        console.error("Błąd odczytu wiadomości:", err);
+        console.error("❌ Błąd krytyczny czatu:", err);
     }
 });
 
@@ -62,6 +62,6 @@ function broadcast(data) {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Serwer dymometru aktywny na porcie ${PORT}`);
-    console.log(`📡 Słucham czatu ID: ${CHATROOM_ID}`);
+    console.log(`🚀 SERWER DYMOMETRU ONLINE`);
+    console.log(`📡 SŁUCHAM CZATU ID: ${CHATROOM_ID}`);
 });
