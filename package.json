@@ -1,6 +1,7 @@
 {
-  "name": "dymometr-kick",
+  "name": "kick-dymometr",
   "version": "1.0.0",
+  "description": "Widget dymometru dla Kicka",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
