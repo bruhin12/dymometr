@@ -13,40 +13,48 @@ let currentLevel = 0;
 const KEKW_VALUE = 100 / 67; 
 const DROP_SPEED = 5 / 60;   
 
-// --- KONFIGURACJA KICKA ---
 const CHATROOM_ID = 31815171; 
+
+// Konfiguracja Pushera z wymuszonym utrzymaniem połączenia
 const pusher = new Pusher('eb1d5f2830c9ce35672d', {
     cluster: 'mt1',
     forceTLS: true,
-    enabledTransports: ['ws', 'wss'] // Wymuszamy konkretne protokoły
+    enabledTransports: ['ws', 'wss'],
+    activityTimeout: 120000, // 2 minuty przed timeoutem
+    pongTimeout: 30000       // 30 sekund na odpowiedź
 });
 
 const channel = pusher.subscribe(`chatrooms.${CHATROOM_ID}.v2`);
 
-// Test połączenia
+// Monitorowanie statusu w logach Rendera
 pusher.connection.bind('state_change', (states) => {
-    console.log(`🔌 Status połączenia z Kick: ${states.current}`);
+    console.log(`🔌 [POŁĄCZENIE] Zmiana statusu: ${states.previous} -> ${states.current}`);
+});
+
+pusher.connection.bind('error', (err) => {
+    console.error('❌ [BŁĄD PUSHERA]:', err);
 });
 
 channel.bind('App\\Events\\ChatMessageEvent', (data) => {
     try {
-        // Czasami dane przychodzą już jako obiekt, nie trzeba ich parsować drugi raz
+        // Kick czasem wysyła string, czasem obiekt - obsłużmy oba przypadki
         const chatData = (typeof data.message === 'string') ? JSON.parse(data.message) : data;
         const content = chatData.content || "";
         const sender = chatData.sender ? chatData.sender.username : "Anonim";
 
-        console.log(`💬 [CZAT] ${sender}: ${content}`);
+        // Logowanie w konsoli Rendera dla pewności
+        console.log(`💬 [${sender}]: ${content}`);
 
-        // Reagujemy na KEKW (tekst lub emotka)
+        // Reakcja na KEKW (duże/małe litery)
         if (content.toUpperCase().includes('KEKW')) {
             currentLevel += KEKW_VALUE;
             if (currentLevel > 100) currentLevel = 100;
             
-            console.log(`🔥 PUNKT! Nowy poziom: ${currentLevel.toFixed(1)}%`);
+            console.log(`🔥 KEKW WYKRYTE! Nowy poziom: ${currentLevel.toFixed(1)}%`);
             broadcast({ level: currentLevel, triggerEffect: currentLevel >= 100 });
         }
     } catch (err) {
-        console.error("❌ Błąd przetwarzania wiadomości:", err);
+        console.error("❌ Błąd przy odbieraniu wiadomości:", err);
     }
 });
 
@@ -67,7 +75,7 @@ function broadcast(data) {
     });
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Render używa 10000
 server.listen(PORT, () => {
     console.log(`🚀 SERWER DYMOMETRU ONLINE NA PORCIE ${PORT}`);
 });
