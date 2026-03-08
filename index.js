@@ -10,43 +10,34 @@ const wss = new WebSocket.Server({ server });
 
 app.use(express.static(__dirname));
 
-// --- KONFIGURACJA DYMOMETRU ---
 let currentLevel = 0; 
-const MAX_LEVEL = 100;
-const KEKW_VALUE = 100 / 67; // 67 KEKW do pełna
-const DROP_SPEED = 5 / 60;   // Spadek 5% na sekundę
+const KEKW_VALUE = 100 / 67;
+const DROP_SPEED = 5 / 60;
 
-// --- KONFIGURACJA KICKA ---
+// POŁĄCZENIE Z KICK
 const CHATROOM_ID = 31815171; 
 const pusher = new Pusher('eb1d5f2830c9ce35672d', {
     cluster: 'mt1',
     forceTLS: true
 });
 
-// Subskrypcja czatu
 const channel = pusher.subscribe(`chatrooms.${CHATROOM_ID}.v2`);
-
-console.log(`📡 Łączenie z czatem Kick (ID: ${CHATROOM_ID})...`);
 
 channel.bind('App\\Events\\ChatMessageEvent', (data) => {
     try {
         const chatData = JSON.parse(data.message);
-        const content = chatData.content;
-        
-        // Szukamy Twojej emotki KEKW (ID: 377226)
-        if (content.includes('377226:KEKW')) {
+        console.log(`📩 Wiadomość od ${chatData.sender.username}: ${chatData.content}`); // To pokaże logi na Renderze
+
+        if (chatData.content.includes('377226:KEKW')) {
             currentLevel += KEKW_VALUE;
-            if (currentLevel > MAX_LEVEL) currentLevel = MAX_LEVEL;
-            
-            console.log(`🔥 KEKW na czacie! Poziom: ${currentLevel.toFixed(1)}%`);
-            broadcast({ level: currentLevel, triggerEffect: currentLevel >= MAX_LEVEL });
+            if (currentLevel > 100) currentLevel = 100;
+            broadcast({ level: currentLevel, triggerEffect: currentLevel >= 100 });
         }
     } catch (err) {
-        console.error("Błąd przetwarzania wiadomości:", err);
+        console.error("❌ Błąd Pushera:", err);
     }
 });
 
-// Pętla płynności (60 FPS)
 setInterval(() => {
     if (currentLevel > 0) {
         currentLevel -= DROP_SPEED;
@@ -63,11 +54,5 @@ function broadcast(data) {
     });
 }
 
-wss.on('connection', (ws) => {
-    ws.send(JSON.stringify({ level: currentLevel }));
-});
-
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Serwer dymometru działa na porcie ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Dymometr gotowy na porcie ${PORT}`));
